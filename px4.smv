@@ -66,7 +66,7 @@ MODULE main
 
     -- hil_enabled
     init(hil_enabled) := FALSE ;
-    next(hil_enabled) := hil_enabled;
+    next(hil_enabled) := {TRUE, FALSE};
 
     -- state request
     init(request) := preflight;
