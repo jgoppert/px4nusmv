@@ -1,0 +1,86 @@
+MODULE State_Machine_Helper(request, hil_enabled)
+  VAR
+    -- flags
+    armed : boolean;
+
+    -- main autopilot state
+    state  : {preflight, standby, ground_ready,
+      manual, stabilized, auto, mission_abort,
+      emc_landing, emc_cutoff, ground_error,
+      reboot};
+
+  ASSIGN
+
+    -- main autopilot state
+    init(state) := preflight;
+    next(state) := case
+      request = preflight &
+        (state = standby
+          | state = preflight) : preflight;
+      request = auto &
+        (state = ground_ready
+          | state = manual) : auto;
+      request = reboot &
+        (state = standby
+          | state = preflight
+          | hil_enabled) : reboot;
+      -- directly allowed transitions upon request
+      (request = standby
+        | request = ground_ready
+        | request = manual
+        | request = stabilized
+        | request = mission_abort
+        | request = emc_landing
+        | request = emc_cutoff
+        | request = ground_error) : request;
+      TRUE : state;
+    esac;
+
+    -- arming
+    init(armed) := FALSE;
+    next(armed) := case
+      (next(state) = emc_landing
+        | next(state) = ground_ready
+        | next(state) = auto
+        | next(state) = stabilized
+        | next(state) = manual) : TRUE;
+      (next(state) = emc_cutoff
+        | next(state) = ground_error
+        | next(state) = preflight
+        | next(state) = reboot
+        | next(state) = standby) : FALSE;
+      TRUE : armed;
+    esac;
+
+MODULE main
+  VAR
+    request  : {preflight, standby, ground_ready,
+      manual, stabilized, auto, mission_abort,
+      emc_landing, emc_cutoff, ground_error,
+      reboot};
+    hil_enabled : boolean;
+    state_machine : State_Machine_Helper(
+      request, hil_enabled);
+
+  ASSIGN
+
+    -- hil_enabled
+    init(hil_enabled) := FALSE ;
+    next(hil_enabled) := hil_enabled;
+
+    -- state request
+    init(request) := preflight;
+    next(request) := {
+      preflight, standby, ground_ready,
+      manual, stabilized, auto, mission_abort,
+      emc_landing, emc_cutoff, ground_error,
+      reboot};
+
+-- system never is in ground_error state while armed
+SPEC AG ! (state_machine.state=ground_error &
+          state_machine.armed)
+
+-- system is never armed when hil_enabled
+SPEC AG ! (hil_enabled & state_machine.armed)
+
+-- vim:ts=2:sw=2:expandtab
