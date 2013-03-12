@@ -14,12 +14,17 @@ MODULE State_Machine_Helper(request, hil_enabled)
     -- main autopilot state
     init(state) := preflight;
     next(state) := case
+      -- can never leave reboot state
+      state = reboot : reboot;
+      -- preflight transition
       request = preflight &
         (state = standby
           | state = preflight) : preflight;
+      -- auto transition
       request = auto &
         (state = ground_ready
           | state = manual) : auto;
+      -- reboot transition
       request = reboot &
         (state = standby
           | state = preflight
